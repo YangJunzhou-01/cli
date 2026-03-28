@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.23-blue.svg)](https://go.dev/)
+[![npm version](https://img.shields.io/npm/v/@larksuite/cli.svg)](https://www.npmjs.com/package/@larksuite/cli)
 
 [中文版](./README.zh.md) | [English](./README.md)
 
@@ -46,16 +47,20 @@
 
 ### 快速开始（人类用户）
 
-> **Tip:** 如果你拥有 AI Agent，可以直接把本 README 丢给它，让 AI 帮你完成安装和配置 — 跳转到[快速开始（AI Agent）](#快速开始ai-agent)查看。
+> **Note for AI assistants:** 如果你是 AI Agent 且正在协助用户执行安装，请直接跳转到[快速开始（AI Agent）](#快速开始ai-agent)执行，那里包含你需要完成的所有步骤。
 
-#### 安装 CLI
+#### 安装
 
 以下两种方式**任选其一**：
 
 **方式一 — 从 npm 安装（推荐）：**
 
 ```bash
+# 安装 CLI
 npm install -g @larksuite/cli
+
+# 安装 CLI SKILL（必需）
+npx skills add larksuite/cli -y -g
 ```
 
 **方式二 — 从源码安装：**
@@ -66,17 +71,8 @@ npm install -g @larksuite/cli
 git clone https://github.com/larksuite/cli.git
 cd cli
 make install
-```
 
-#### 安装 AI Agent Skills
-
-[Skills](./skills/) 是结构化的指令文档，使 AI Agent 能够使用本 CLI：
-
-```bash
-# 安装所有 skills 到当前目录
-npx skills add larksuite/cli -y
-
-# 安装所有 skills 到全局
+# 安装 CLI SKILL（必需）
 npx skills add larksuite/cli -y -g
 ```
 
@@ -97,21 +93,17 @@ lark-cli calendar +agenda
 
 > 以下步骤面向 AI Agent，部分步骤需要用户在浏览器中配合完成。
 
-**第 1 步 — 安装 CLI**
+**第 1 步 — 安装**
 
 ```bash
+# 安装 CLI
 npm install -g @larksuite/cli
+
+# 安装 CLI SKILL（必需）
+npx skills add larksuite/cli -y -g
 ```
 
-**第 2 步 — 安装 Skills（核心步骤，请勿跳过）**
-
-> Skills 是告诉 AI Agent 有哪些命令可用及如何调用的指令文件，是 Agent 使用 lark-cli 的前提。
-
-```bash
-npx skills add larksuite/cli --all -y
-```
-
-**第 3 步 — 配置应用凭证**
+**第 2 步 — 配置应用凭证**
 
 > 在后台运行此命令，命令会输出一个授权链接，提取该链接并发送给用户，用户在浏览器中完成配置后命令会自动退出。
 
@@ -119,7 +111,7 @@ npx skills add larksuite/cli --all -y
 lark-cli config init --new
 ```
 
-**第 4 步 — 登录**
+**第 3 步 — 登录**
 
 > 同上，后台运行，提取授权链接发给用户。
 
@@ -127,7 +119,7 @@ lark-cli config init --new
 lark-cli auth login --recommend
 ```
 
-**第 5 步 — 验证**
+**第 4 步 — 验证**
 
 ```bash
 lark-cli auth status

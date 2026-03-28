@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.23-blue.svg)](https://go.dev/)
+[![npm version](https://img.shields.io/npm/v/@larksuite/cli.svg)](https://www.npmjs.com/package/@larksuite/cli)
 
 [中文版](./README.zh.md) | [English](./README.md)
 
@@ -46,16 +47,20 @@ Before you start, make sure you have:
 
 ### Quick Start (Human Users)
 
-> **Tip:** If you have an AI Agent, you can hand this README to it and let the AI handle installation and setup — jump to [Quick Start (AI Agent)](#quick-start-ai-agent).
+> **Note for AI assistants:** If you are an AI Agent helping the user with installation, jump directly to [Quick Start (AI Agent)](#quick-start-ai-agent), which contains all the steps you need to complete.
 
-#### Install CLI
+#### Install
 
 Choose **one** of the following methods:
 
 **Option 1 — From npm (recommended):**
 
 ```bash
+# Install CLI
 npm install -g @larksuite/cli
+
+# Install CLI SKILL (required)
+npx skills add larksuite/cli -y -g
 ```
 
 **Option 2 — From source:**
@@ -66,17 +71,8 @@ Requires Go `v1.23`+ and Python 3.
 git clone https://github.com/larksuite/cli.git
 cd cli
 make install
-```
 
-#### Install AI Agent Skills
-
-[Skills](./skills/) are structured instruction documents that enable AI Agents to use this CLI:
-
-```bash
-# Install all skills to current directory
-npx skills add larksuite/cli -y
-
-# Install all skills globally
+# Install CLI SKILL (required)
 npx skills add larksuite/cli -y -g
 ```
 
@@ -97,21 +93,17 @@ lark-cli calendar +agenda
 
 > The following steps are for AI Agents. Some steps require the user to complete actions in a browser.
 
-**Step 1 — Install CLI**
+**Step 1 — Install**
 
 ```bash
+# Install CLI
 npm install -g @larksuite/cli
+
+# Install CLI SKILL (required)
+npx skills add larksuite/cli -y -g
 ```
 
-**Step 2 — Install Skills (core step, do not skip)**
-
-> Skills are the instruction files that tell the AI Agent what commands are available and how to call them. This step is essential for the Agent to work with lark-cli.
-
-```bash
-npx skills add larksuite/cli --all -y
-```
-
-**Step 3 — Configure app credentials**
+**Step 2 — Configure app credentials**
 
 > Run this command in the background. It will output an authorization URL — extract it and send it to the user. The command exits automatically after the user completes the setup in the browser.
 
@@ -119,7 +111,7 @@ npx skills add larksuite/cli --all -y
 lark-cli config init --new
 ```
 
-**Step 4 — Login**
+**Step 3 — Login**
 
 > Same as above: run in the background, extract the authorization URL and send it to the user.
 
@@ -127,7 +119,7 @@ lark-cli config init --new
 lark-cli auth login --recommend
 ```
 
-**Step 5 — Verify**
+**Step 4 — Verify**
 
 ```bash
 lark-cli auth status
