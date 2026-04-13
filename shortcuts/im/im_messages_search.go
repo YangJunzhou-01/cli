@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/larksuite/cli/internal/output"
 	"github.com/larksuite/cli/shortcuts/common"
@@ -250,11 +249,10 @@ func buildMessagesSearchRequest(runtime *common.RuntimeContext) (*messagesSearch
 	endFlag := runtime.Str("end")
 	pageSizeStr := runtime.Str("page-size")
 	pageToken := runtime.Str("page-token")
-	pageLimitStr := strings.TrimSpace(runtime.Str("page-limit"))
 
 	if runtime.Cmd != nil && runtime.Cmd.Flags().Changed("page-limit") {
-		pageLimit, err := strconv.Atoi(pageLimitStr)
-		if err != nil || pageLimit < 1 || pageLimit > messagesSearchMaxPageLimit {
+		pageLimit := runtime.Int("page-limit")
+		if pageLimit < 1 || pageLimit > messagesSearchMaxPageLimit {
 			return nil, output.ErrValidation("--page-limit must be an integer between 1 and 40")
 		}
 	}
@@ -366,9 +364,7 @@ func messagesSearchPaginationConfig(runtime *common.RuntimeContext) (autoPaginat
 
 	pageLimit = messagesSearchDefaultPageLimit
 	if runtime.Cmd != nil && runtime.Cmd.Flags().Changed("page-limit") {
-		if n, err := strconv.Atoi(strings.TrimSpace(runtime.Str("page-limit"))); err == nil && n > 0 {
-			pageLimit = min(n, messagesSearchMaxPageLimit)
-		}
+		pageLimit = min(runtime.Int("page-limit"), messagesSearchMaxPageLimit)
 	} else if runtime.Bool("page-all") {
 		pageLimit = messagesSearchMaxPageLimit
 	}

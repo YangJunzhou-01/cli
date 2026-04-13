@@ -29,6 +29,10 @@ func newTestRuntimeContext(t *testing.T, stringFlags map[string]string, boolFlag
 
 	cmd := &cobra.Command{Use: "test"}
 	for name := range stringFlags {
+		if name == "page-limit" {
+			cmd.Flags().Int(name, 20, "")
+			continue
+		}
 		cmd.Flags().String(name, "", "")
 	}
 	for name := range boolFlags {

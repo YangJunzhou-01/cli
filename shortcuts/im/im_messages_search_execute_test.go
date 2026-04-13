@@ -28,11 +28,11 @@ func newMessagesSearchRuntime(t *testing.T, stringFlags map[string]string, boolF
 		"query",
 		"page-size",
 		"page-token",
-		"page-limit",
 	}
 	for _, name := range stringFlagNames {
 		cmd.Flags().String(name, "", "")
 	}
+	cmd.Flags().Int("page-limit", 20, "")
 	boolFlagNames := []string{"page-all"}
 	for _, name := range boolFlagNames {
 		cmd.Flags().Bool(name, false, "")
