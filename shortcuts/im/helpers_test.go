@@ -862,6 +862,7 @@ func TestShortcuts(t *testing.T) {
 		"+chat-messages-list",
 		"+chat-search",
 		"+chat-update",
+		"+message-user-receive-subscribe",
 		"+messages-mget",
 		"+messages-reply",
 		"+messages-resources-download",

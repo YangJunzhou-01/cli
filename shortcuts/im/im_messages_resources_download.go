@@ -24,7 +24,7 @@ import (
 var ImMessagesResourcesDownload = common.Shortcut{
 	Service:     "im",
 	Command:     "+messages-resources-download",
-	Description: "Download images/files from a message; user/bot; downloads image/file resources by message-id and file-key to a safe relative output path",
+	Description: "Download images/files from a message; user/bot; supports automatic chunked download for large files (8MB chunks), auto-detects file extension from Content-Type",
 	Risk:        "write",
 	Scopes:      []string{"im:message:readonly"},
 	AuthTypes:   []string{"user", "bot"},

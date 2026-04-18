@@ -73,6 +73,60 @@ func TestImMessageReadProcessor_Dedup(t *testing.T) {
 	}
 }
 
+// --- im.message.user_receive_v1 ---
+
+func TestImMessageUserReceiveProcessor_Compact(t *testing.T) {
+	p := NewImMessageUserReceiveProcessor()
+	if p.EventType() != "im.message.user_receive_v1" {
+		t.Fatalf("EventType = %q", p.EventType())
+	}
+	raw := makeRawEvent("im.message.user_receive_v1", `{
+		"message": {
+			"message_id": "om_user",
+			"chat_id": "oc_user",
+			"chat_type": "group",
+			"message_type": "text",
+			"content": "{\"text\":\"hello from user listener\"}",
+			"create_time": "1700000100"
+		},
+		"sender": {"sender_id": {"open_id": "ou_sender"}}
+	}`)
+	raw.Header.CreateTime = "1700000101"
+
+	result, ok := p.Transform(context.Background(), raw, TransformCompact).(map[string]interface{})
+	if !ok {
+		t.Fatal("compact should return map")
+	}
+	if result["message_id"] != "om_user" {
+		t.Errorf("message_id = %v, want om_user", result["message_id"])
+	}
+	if result["sender_id"] != "ou_sender" {
+		t.Errorf("sender_id = %v, want ou_sender", result["sender_id"])
+	}
+	if result["content"] != "hello from user listener" {
+		t.Errorf("content = %v", result["content"])
+	}
+	if result["timestamp"] != "1700000101" {
+		t.Errorf("timestamp = %v, want header create_time", result["timestamp"])
+	}
+}
+
+func TestImMessageUserReceiveProcessor_Raw(t *testing.T) {
+	p := NewImMessageUserReceiveProcessor()
+	raw := makeRawEvent("im.message.user_receive_v1", `{}`)
+	if _, ok := p.Transform(context.Background(), raw, TransformRaw).(*RawEvent); !ok {
+		t.Fatal("raw mode should return *RawEvent")
+	}
+}
+
+func TestImMessageUserReceiveProcessor_UnmarshalError(t *testing.T) {
+	p := NewImMessageUserReceiveProcessor()
+	raw := makeRawEvent("im.message.user_receive_v1", `not json`)
+	if _, ok := p.Transform(context.Background(), raw, TransformCompact).(*RawEvent); !ok {
+		t.Fatal("unmarshal error should fallback to *RawEvent")
+	}
+}
+
 // --- im.message.reaction.created_v1 / deleted_v1 ---
 
 func TestImReactionCreatedProcessor_Compact(t *testing.T) {
@@ -416,6 +470,7 @@ func TestRegistryAllIMProcessors(t *testing.T) {
 	r := DefaultRegistry()
 	imTypes := []string{
 		"im.message.receive_v1",
+		"im.message.user_receive_v1",
 		"im.message.message_read_v1",
 		"im.message.reaction.created_v1",
 		"im.message.reaction.deleted_v1",

@@ -43,6 +43,7 @@ func DefaultRegistry() *ProcessorRegistry {
 	r := NewProcessorRegistry(&GenericProcessor{})
 	// im.message
 	_ = r.Register(&ImMessageProcessor{})
+	_ = r.Register(NewImMessageUserReceiveProcessor())
 	_ = r.Register(&ImMessageReadProcessor{})
 	_ = r.Register(NewImReactionCreatedProcessor())
 	_ = r.Register(NewImReactionDeletedProcessor())

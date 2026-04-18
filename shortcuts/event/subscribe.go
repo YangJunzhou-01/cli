@@ -53,6 +53,7 @@ var _ larkcore.Logger = (*stderrLogger)(nil)
 // commonEventTypes are well-known event types registered in catch-all mode.
 var commonEventTypes = []string{
 	"im.message.receive_v1",
+	"im.message.user_receive_v1",
 	"im.message.message_read_v1",
 	"im.message.reaction.created_v1",
 	"im.message.reaction.deleted_v1",

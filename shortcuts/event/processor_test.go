@@ -240,6 +240,43 @@ func TestPipeline_Filtered(t *testing.T) {
 	}
 }
 
+func TestPipeline_MessageUserReceive_Compact(t *testing.T) {
+	filters := NewFilterChain()
+	var out, errOut bytes.Buffer
+	p := NewEventPipeline(DefaultRegistry(), filters,
+		PipelineConfig{Mode: TransformCompact}, &out, &errOut)
+
+	raw := makeRawEvent("im.message.user_receive_v1", `{
+		"message": {
+			"message_id": "om_user_pipeline",
+			"chat_id": "oc_user_pipeline",
+			"chat_type": "group",
+			"message_type": "text",
+			"content": "{\"text\":\"pipeline user receive\"}",
+			"create_time": "1700000200"
+		},
+		"sender": {"sender_id": {"open_id": "ou_sender"}}
+	}`)
+	raw.Header.EventID = "ev_user_pipeline"
+	raw.Header.CreateTime = "1700000201"
+
+	p.Process(context.Background(), raw)
+
+	var got map[string]interface{}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("pipeline output is not valid JSON: %v", err)
+	}
+	if got["type"] != "im.message.user_receive_v1" {
+		t.Errorf("type = %v, want im.message.user_receive_v1", got["type"])
+	}
+	if got["content"] != "pipeline user receive" {
+		t.Errorf("content = %v, want pipeline user receive", got["content"])
+	}
+	if got["message_id"] != "om_user_pipeline" {
+		t.Errorf("message_id = %v, want om_user_pipeline", got["message_id"])
+	}
+}
+
 func TestDeduplicateKey(t *testing.T) {
 	raw := makeRawEvent("im.message.receive_v1", `{}`)
 	if k := (&ImMessageProcessor{}).DeduplicateKey(raw); k != "ev_test" {

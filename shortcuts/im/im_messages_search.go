@@ -28,7 +28,7 @@ const (
 var ImMessagesSearch = common.Shortcut{
 	Service:     "im",
 	Command:     "+messages-search",
-	Description: "Search messages across chats (supports keyword, sender, time range filters) with user identity; user-only; filters by chat/sender/attachment/time, enriches results via mget and chats batch_query",
+	Description: "Search messages across chats (supports keyword, sender, time range filters) with user identity; user-only; filters by chat/sender/attachment/time, supports auto-pagination via `--page-all` / `--page-limit`, enriches results via batched mget and chats batch_query",
 	Risk:        "read",
 	Scopes:      []string{"search:message", "contact:user.basic_profile:readonly"},
 	AuthTypes:   []string{"user"},
