@@ -4,6 +4,7 @@
 package im
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -22,7 +23,7 @@ func newMessageUserReceiveSubscribeRuntime(t *testing.T, stringFlags map[string]
 
 	runtime := newUserShortcutRuntime(t, rt)
 	cmd := &cobra.Command{Use: "test"}
-	for _, name := range []string{"resource-type", "resource-ids", "user-id-type"} {
+	for _, name := range []string{"resource-type", "resource-ids"} {
 		cmd.Flags().String(name, "", "")
 	}
 	if err := cmd.ParseFlags(nil); err != nil {
@@ -42,10 +43,9 @@ func TestBuildMessageUserReceiveSubscribeRequest(t *testing.T) {
 	runtime := newTestRuntimeContext(t, map[string]string{
 		"resource-type": "sender_user",
 		"resource-ids":  "ou_1, ou_2",
-		"user-id-type":  "union_id",
 	}, nil)
 
-	body, params, err := buildMessageUserReceiveSubscribeRequest(runtime)
+	body, err := buildMessageUserReceiveSubscribeRequest(runtime)
 	if err != nil {
 		t.Fatalf("buildMessageUserReceiveSubscribeRequest() error = %v", err)
 	}
@@ -56,9 +56,6 @@ func TestBuildMessageUserReceiveSubscribeRequest(t *testing.T) {
 	}
 	if !reflect.DeepEqual(body, wantBody) {
 		t.Fatalf("body = %#v, want %#v", body, wantBody)
-	}
-	if got := params.Get("user_id_type"); got != "union_id" {
-		t.Fatalf("user_id_type = %q, want union_id", got)
 	}
 }
 
@@ -72,38 +69,50 @@ func TestMessageUserReceiveSubscribeValidate(t *testing.T) {
 			name: "mention_me without resource ids is allowed",
 			flags: map[string]string{
 				"resource-type": "mention_me",
-				"user-id-type":  "open_id",
 			},
 		},
 		{
-			name: "sender_user without resource ids is allowed",
+			name: "sender_user requires resource ids",
 			flags: map[string]string{
 				"resource-type": "sender_user",
-				"user-id-type":  "open_id",
 			},
+			wantErr: "--resource-ids is required",
 		},
 		{
 			name: "chat rejects more than ten resource ids",
 			flags: map[string]string{
 				"resource-type": "chat",
 				"resource-ids":  "oc_1,oc_2,oc_3,oc_4,oc_5,oc_6,oc_7,oc_8,oc_9,oc_10,oc_11",
-				"user-id-type":  "open_id",
 			},
 			wantErr: "--resource-ids exceeds the maximum of 10",
 		},
 		{
-			name: "p2p_chat with explicit resource ids is allowed",
+			name: "p2p_chat allows explicit resource ids",
 			flags: map[string]string{
 				"resource-type": "p2p_chat",
 				"resource-ids":  "ou_1",
-				"user-id-type":  "open_id",
 			},
+		},
+		{
+			name: "sender_user rejects invalid user id format",
+			flags: map[string]string{
+				"resource-type": "sender_user",
+				"resource-ids":  "user_1",
+			},
+			wantErr: "invalid user ID format",
+		},
+		{
+			name: "chat rejects invalid chat id format",
+			flags: map[string]string{
+				"resource-type": "chat",
+				"resource-ids":  "chat_1",
+			},
+			wantErr: "invalid chat ID format",
 		},
 		{
 			name: "unknown resource type fails",
 			flags: map[string]string{
 				"resource-type": "unknown",
-				"user-id-type":  "open_id",
 			},
 			wantErr: "invalid --resource-type",
 		},
@@ -129,12 +138,10 @@ func TestMessageUserReceiveSubscribeValidate(t *testing.T) {
 func TestMessageUserReceiveSubscribeDryRun(t *testing.T) {
 	runtime := newTestRuntimeContext(t, map[string]string{
 		"resource-type": "mention_me",
-		"user-id-type":  "open_id",
 	}, nil)
 
 	got := mustMarshalDryRun(t, ImMessageUserReceiveSubscribe.DryRun(context.Background(), runtime))
-	if !strings.Contains(got, `"/open-apis/v1/user_message_subscriptions"`) ||
-		!strings.Contains(got, `"user_id_type":"open_id"`) ||
+	if !strings.Contains(got, `"/open-apis/im/v1/user_message_subscriptions"`) ||
 		!strings.Contains(got, `"resource_type":3`) {
 		t.Fatalf("DryRun() = %s", got)
 	}
@@ -144,7 +151,6 @@ func TestMessageUserReceiveSubscribeDryRun_WithResourceIDs(t *testing.T) {
 	runtime := newTestRuntimeContext(t, map[string]string{
 		"resource-type": "p2p_chat",
 		"resource-ids":  "ou_1",
-		"user-id-type":  "open_id",
 	}, nil)
 
 	got := mustMarshalDryRun(t, ImMessageUserReceiveSubscribe.DryRun(context.Background(), runtime))
@@ -160,9 +166,8 @@ func TestMessageUserReceiveSubscribeExecute(t *testing.T) {
 	runtime := newMessageUserReceiveSubscribeRuntime(t, map[string]string{
 		"resource-type": "chat",
 		"resource-ids":  "oc_1",
-		"user-id-type":  "open_id",
 	}, shortcutRoundTripFunc(func(req *http.Request) (*http.Response, error) {
-		if !strings.Contains(req.URL.Path, "/open-apis/v1/user_message_subscriptions") {
+		if !strings.Contains(req.URL.Path, "/open-apis/im/v1/user_message_subscriptions") {
 			return nil, fmt.Errorf("unexpected path: %s", req.URL.Path)
 		}
 		capturedPath = req.URL.Path
@@ -194,16 +199,67 @@ func TestMessageUserReceiveSubscribeExecute(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	if capturedPath != "/open-apis/v1/user_message_subscriptions" {
+	if capturedPath != "/open-apis/im/v1/user_message_subscriptions" {
 		t.Fatalf("path = %q", capturedPath)
 	}
-	if !strings.Contains(capturedQuery, "user_id_type=open_id") {
-		t.Fatalf("query = %q, want user_id_type=open_id", capturedQuery)
+	if capturedQuery != "" {
+		t.Fatalf("query = %q, want empty", capturedQuery)
 	}
 	if got := capturedBody["resource_type"]; got != float64(2) {
 		t.Fatalf("resource_type = %#v, want 2", got)
 	}
 	if got := capturedBody["resource_ids"]; !reflect.DeepEqual(got, []interface{}{"oc_1"}) {
 		t.Fatalf("resource_ids = %#v, want [oc_1]", got)
+	}
+}
+
+func TestMessageUserReceiveSubscribeExecutePrettyOutput(t *testing.T) {
+	runtime := newMessageUserReceiveSubscribeRuntime(t, map[string]string{
+		"resource-type": "chat",
+		"resource-ids":  "oc_1",
+	}, shortcutRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return shortcutJSONResponse(200, map[string]interface{}{
+			"code": 0,
+			"msg":  "ok",
+			"data": map[string]interface{}{
+				"subscriptions": []map[string]interface{}{
+					{
+						"subscription_id": "sub_1",
+						"resource_type":   2,
+						"resource_id":     "oc_1",
+						"status":          1,
+					},
+				},
+			},
+		}), nil
+	}))
+	runtime.Format = "pretty"
+
+	if err := ImMessageUserReceiveSubscribe.Execute(context.Background(), runtime); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	outBuf, _ := runtime.Factory.IOStreams.Out.(*bytes.Buffer)
+	if outBuf == nil {
+		t.Fatal("stdout buffer missing")
+	}
+	out := outBuf.String()
+	for _, want := range []string{"sub_1", "oc_1", "resource_type", "status"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("pretty output missing %q: %s", want, out)
+		}
+	}
+}
+
+func TestSubscriptionRows(t *testing.T) {
+	rows := subscriptionRows([]interface{}{
+		map[string]interface{}{"subscription_id": "sub_1", "resource_id": "oc_1"},
+		"bad",
+	})
+	want := []map[string]interface{}{
+		{"subscription_id": "sub_1", "resource_id": "oc_1"},
+	}
+	if !reflect.DeepEqual(rows, want) {
+		t.Fatalf("subscriptionRows() = %#v, want %#v", rows, want)
 	}
 }

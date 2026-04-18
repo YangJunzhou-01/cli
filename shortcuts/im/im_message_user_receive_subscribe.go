@@ -12,7 +12,6 @@ import (
 
 	"github.com/larksuite/cli/internal/output"
 	"github.com/larksuite/cli/shortcuts/common"
-	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 )
 
 const imMessageUserReceiveSubscribePath = "/open-apis/im/v1/user_message_subscriptions"
@@ -27,7 +26,7 @@ const (
 var ImMessageUserReceiveSubscribe = common.Shortcut{
 	Service:     "im",
 	Command:     "+message-user-receive-subscribe",
-	Description: "Create a user message receive subscription",
+	Description: "Create a message receive subscription; user-only; supports sender_user/chat/mention_me/p2p_chat resource types",
 	Risk:        "write",
 	Scopes:      []string{"im:message.user_event_message:read"},
 	AuthTypes:   []string{"user"},
@@ -36,40 +35,33 @@ var ImMessageUserReceiveSubscribe = common.Shortcut{
 		{
 			Name:    "resource-type",
 			Default: "mention_me",
-			Desc:    "subscription resource type",
+			Desc:    "subscription resource type: sender_user means messages sent by specified users; chat means messages in specified chats; mention_me means messages that mention the current subscriber; p2p_chat means p2p messages associated with the current subscriber",
 			Enum:    []string{"sender_user", "chat", "mention_me", "p2p_chat"},
 		},
 		{
 			Name: "resource-ids",
-			Desc: "comma-separated resource open IDs; required for sender_user/chat and omitted for mention_me/p2p_chat",
-		},
-		{
-			Name:    "user-id-type",
-			Default: "open_id",
-			Desc:    "user ID type used by the API",
-			Enum:    []string{"open_id", "user_id", "union_id"},
+			Desc: "comma-separated resource IDs (max 10); for sender_user, use user open_ids (ou_xxx); for chat, use chat open_ids (oc_xxx); required for sender_user/chat and optional for mention_me/p2p_chat",
 		},
 	},
 	DryRun: func(ctx context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
-		body, params, err := buildMessageUserReceiveSubscribeRequest(runtime)
+		body, err := buildMessageUserReceiveSubscribeRequest(runtime)
 		if err != nil {
 			return common.NewDryRunAPI().Set("error", err.Error())
 		}
 		return common.NewDryRunAPI().
 			POST(imMessageUserReceiveSubscribePath).
-			Params(map[string]interface{}{"user_id_type": params.Get("user_id_type")}).
 			Body(body)
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
 		return validateMessageUserReceiveSubscribe(runtime)
 	},
 	Execute: func(ctx context.Context, runtime *common.RuntimeContext) error {
-		body, params, err := buildMessageUserReceiveSubscribeRequest(runtime)
+		body, err := buildMessageUserReceiveSubscribeRequest(runtime)
 		if err != nil {
 			return err
 		}
 
-		resData, err := runtime.DoAPIJSON(http.MethodPost, imMessageUserReceiveSubscribePath, params, body)
+		resData, err := runtime.DoAPIJSON(http.MethodPost, imMessageUserReceiveSubscribePath, nil, body)
 		if err != nil {
 			return err
 		}
@@ -79,24 +71,18 @@ var ImMessageUserReceiveSubscribe = common.Shortcut{
 		}
 		runtime.OutFormat(outData, nil, func(w io.Writer) {
 			fmt.Fprintln(w, "Message user receive subscription created successfully")
-			if subscriptions, ok := outData["subscriptions"].([]interface{}); ok {
-				output.PrintTable(w, []map[string]interface{}{
-					{"subscriptions": len(subscriptions)},
-				})
+			if rows := subscriptionRows(outData["subscriptions"]); len(rows) > 0 {
+				output.PrintTable(w, rows)
 			}
 		})
 		return nil
 	},
 }
 
-func buildMessageUserReceiveSubscribeRequest(runtime *common.RuntimeContext) (map[string]interface{}, larkcore.QueryParams, error) {
+func buildMessageUserReceiveSubscribeRequest(runtime *common.RuntimeContext) (map[string]interface{}, error) {
 	resourceType, err := parseMessageUserReceiveResourceType(runtime.Str("resource-type"))
 	if err != nil {
-		return nil, nil, err
-	}
-	userIDType := runtime.Str("user-id-type")
-	if strings.TrimSpace(userIDType) == "" {
-		userIDType = "open_id"
+		return nil, err
 	}
 
 	body := map[string]interface{}{
@@ -106,8 +92,7 @@ func buildMessageUserReceiveSubscribeRequest(runtime *common.RuntimeContext) (ma
 		body["resource_ids"] = ids
 	}
 
-	params := larkcore.QueryParams{"user_id_type": []string{userIDType}}
-	return body, params, nil
+	return body, nil
 }
 
 func validateMessageUserReceiveSubscribe(runtime *common.RuntimeContext) error {
@@ -125,9 +110,21 @@ func validateMessageUserReceiveSubscribe(runtime *common.RuntimeContext) error {
 		if len(resourceIDs) > 10 {
 			return output.ErrValidation("--resource-ids exceeds the maximum of 10 (got %d)", len(resourceIDs))
 		}
+		for _, resourceID := range resourceIDs {
+			switch resourceType {
+			case messageUserReceiveResourceSenderUser:
+				if _, err := common.ValidateUserID(resourceID); err != nil {
+					return err
+				}
+			case messageUserReceiveResourceChat:
+				if _, err := common.ValidateChatID(resourceID); err != nil {
+					return err
+				}
+			}
+		}
 	case messageUserReceiveResourceMentionMe, messageUserReceiveResourceP2PChat:
-		if len(resourceIDs) > 0 {
-			return output.ErrValidation("--resource-ids is not supported for resource-type %s", resourceTypeName(resourceType))
+		if len(resourceIDs) > 10 {
+			return output.ErrValidation("--resource-ids exceeds the maximum of 10 (got %d)", len(resourceIDs))
 		}
 	}
 	return nil
@@ -161,4 +158,20 @@ func resourceTypeName(resourceType int) string {
 	default:
 		return fmt.Sprintf("%d", resourceType)
 	}
+}
+
+func subscriptionRows(raw interface{}) []map[string]interface{} {
+	subscriptions, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+	rows := make([]map[string]interface{}, 0, len(subscriptions))
+	for _, item := range subscriptions {
+		row, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		rows = append(rows, row)
+	}
+	return rows
 }
