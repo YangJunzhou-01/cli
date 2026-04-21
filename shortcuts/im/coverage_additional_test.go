@@ -210,14 +210,15 @@ func TestBuildChatMessageListRequest(t *testing.T) {
 		}
 
 		want := larkcore.QueryParams{
-			"container_id_type":     {"chat"},
-			"container_id":          {"oc_123"},
-			"sort_type":             {"ByCreateTimeAsc"},
-			"page_size":             {"50"},
-			"card_msg_content_type": {"raw_card_content"},
-			"start_time":            {"1772294400"},
-			"end_time":              {"1772467199"},
-			"page_token":            {"next"},
+			"container_id_type":         {"chat"},
+			"container_id":              {"oc_123"},
+			"sort_type":                 {"ByCreateTimeAsc"},
+			"page_size":                 {"50"},
+			"only_thread_root_messages": {"true"},
+			"card_msg_content_type":     {"raw_card_content"},
+			"start_time":                {"1772294400"},
+			"end_time":                  {"1772467199"},
+			"page_token":                {"next"},
 		}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("buildChatMessageListRequest() = %#v, want %#v", got, want)
@@ -243,6 +244,13 @@ func TestBuildChatMessageListRequest(t *testing.T) {
 			t.Fatalf("buildChatMessageListRequest() error = %v, want end validation", err)
 		}
 	})
+}
+
+func TestChatMessageListOnlyThreadRootMessagesParams(t *testing.T) {
+	got := buildChatMessageListParams("desc", "20", "oc_123")
+	if vals := got["only_thread_root_messages"]; !reflect.DeepEqual(vals, []string{"true"}) {
+		t.Fatalf("only_thread_root_messages = %#v, want true", vals)
+	}
 }
 
 func TestResolveChatIDForMessagesList(t *testing.T) {
