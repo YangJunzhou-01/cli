@@ -27,7 +27,7 @@ When using `--as user`, the reply is sent as the authorized end user and require
 | Reply with plain text exactly as written | `--text` | Wrapped directly to `{"text":"..."}` |
 | Reply with simple Markdown and accept conversion | `--markdown` | Automatically converted to `post` JSON |
 | Precisely control the reply payload | `--content` | You provide the exact JSON |
-| Reply with media | `--image` / `--file` / `--video` / `--audio` | Shortcut uploads keys, URLs, or cwd-relative local files automatically |
+| Reply with media | `--image` / `--file` / `--video` / `--audio` | Shortcut uploads URLs, or cwd-relative local files automatically |
 
 ### `--text` vs `--markdown`
 
@@ -146,22 +146,22 @@ lark-cli im +messages-reply --message-id om_xxx --markdown $'## Test\n\nhello' -
 
 ## Parameters
 
-| Parameter | Required | Description |
-|------|------|------|
-| `--message-id <id>` | Yes | ID of the message being replied to (`om_xxx`) |
+| Parameter | Required | Description                                                                                                                                                                                   |
+|------|------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--message-id <id>` | Yes | ID of the message being replied to (`om_xxx`)                                                                                                                                                 |
 | `--msg-type <type>` | No | Message type (default `text`). If you use `--text` / `--markdown` / media flags, the effective type is inferred automatically. Explicitly setting a conflicting `--msg-type` fails validation |
-| `--content <json>` | One content option | Exact reply content as JSON. The JSON must match the effective `--msg-type` |
-| `--text <string>` | One content option | Plain text reply. Best default when you need exact text and formatting preservation |
-| `--markdown <string>` | One content option | Convenience Markdown input. Internally converted to `post` JSON with Feishu-specific normalization |
-| `--image <path\|url\|key>` | One content option | Cwd-relative local image path, URL, or `image_key` (`img_xxx`) |
-| `--file <path\|url\|key>` | One content option | Cwd-relative local file path, URL, or `file_key` (`file_xxx`) |
-| `--video <path\|url\|key>` | One content option | Cwd-relative local video path, URL, or `file_key`; **must be used together with `--video-cover`** |
-| `--video-cover <path\|url\|key>` | **Required with `--video`** | Cwd-relative local cover image path, URL, or `image_key` (`img_xxx`) |
-| `--audio <path\|url\|key>` | One content option | Cwd-relative local audio path, URL, or `file_key` |
-| `--reply-in-thread` | No | Reply inside the thread. The reply appears in the target message's thread instead of the main chat stream |
-| `--idempotency-key <key>` | No | Idempotency key; the same key sends only one reply within 1 hour |
-| `--as <identity>` | No | Identity type: `bot` or `user` (default `bot`) |
-| `--dry-run` | No | Print the request only, do not execute it |
+| `--content <json>` | One content option | Exact reply content as JSON. The JSON must match the effective `--msg-type`                                                                                                                   |
+| `--text <string>` | One content option | Plain text reply. Best default when you need exact text and formatting preservation                                                                                                           |
+| `--markdown <string>` | One content option | Convenience Markdown input. Internally converted to `post` JSON with Feishu-specific normalization                                                                                            |
+| `--image <path\|url\|key>` | One content option | Cwd-relative local image path, URL, or `image_key` (`img_xxx`)                                                                                                                                |
+| `--file <path\|url\|key>` | One content option | Cwd-relative local file path, URL, or `file_key` (`file_xxx`)                                                                                                                                 |
+| `--video <path\|url\|key>` | One content option | Cwd-relative local video path, URL, or `file_key` (`file_xxx`); **must be used together with `--video-cover`**                                                                                |
+| `--video-cover <path\|url\|key>` | **Required with `--video`** | Cwd-relative local cover image path, URL, or `image_key` (`img_xxx`)                                                                                                                          |
+| `--audio <path\|url\|key>` | One content option | Cwd-relative local audio path, URL, or `file_key` (`file_xxx`)                                                                                                                                            |
+| `--reply-in-thread` | No | Reply inside the thread. The reply appears in the target message's thread instead of the main chat stream                                                                                     |
+| `--idempotency-key <key>` | No | Idempotency key; the same key sends only one reply within 1 hour                                                                                                                              |
+| `--as <identity>` | No | Identity type: `bot` or `user` (default `bot`)                                                                                                                                                |
+| `--dry-run` | No | Print the request only, do not execute it                                                                                                                                                     |
 
 > **Mutual exclusivity rule:** `--text`, `--markdown`, `--content`, and `--image`/`--file`/`--video`/`--audio` cannot be used together. Media flags are also mutually exclusive with each other.
 >

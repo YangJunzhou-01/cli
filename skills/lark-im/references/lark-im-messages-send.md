@@ -27,7 +27,7 @@ When using `--as user`, the message is sent as the authorized end user and requi
 | Send plain text exactly as written | `--text` | Wrapped directly to `{"text":"..."}`; no Markdown conversion |
 | Send simple Markdown and accept Feishu-style rendering | `--markdown` | Automatically converted to `post` JSON |
 | Precisely control the final payload | `--content` | You provide the exact JSON for `text` / `post` / `interactive` / `share_*` / media payloads |
-| Send image / file / video / audio | `--image` / `--file` / `--video` / `--audio` | Shortcut uploads keys, URLs, or cwd-relative local files automatically |
+| Send image / file / video / audio | `--image` / `--file` / `--video` / `--audio` | Shortcut uploads URLs, or cwd-relative local files automatically |
 
 ### `--text` vs `--markdown`
 
@@ -152,22 +152,22 @@ lark-cli im +messages-send --chat-id oc_xxx --markdown $'## Test\n\nhello' --dry
 
 ## Parameters
 
-| Parameter | Required | Description |
-|------|------|------|
-| `--chat-id <id>` | One of two | Group chat ID (`oc_xxx`) |
-| `--user-id <id>` | One of two | User open_id (`ou_xxx`) for direct messages |
-| `--text <string>` | One content option | Plain text message. Best default for exact text and preserved formatting. Automatically wrapped as `{"text":"..."}` |
-| `--markdown <string>` | One content option | Convenience Markdown input. Internally converted to `post` JSON with Feishu-specific normalization; not full Markdown passthrough |
-| `--content <json>` | One content option | Exact message content JSON string; use this when you need full control over `msg_type` and payload. The JSON must match the effective `--msg-type` |
-| `--image <path\|url\|key>` | One content option | Cwd-relative local image path, URL, or `image_key` (`img_xxx`). Local paths and URLs are uploaded automatically |
-| `--file <path\|url\|key>` | One content option | Cwd-relative local file path, URL, or `file_key` (`file_xxx`). Local paths and URLs are uploaded automatically |
-| `--video <path\|url\|key>` | One content option | Cwd-relative local video path, URL, or `file_key`. Local paths and URLs are uploaded automatically. **Must be paired with `--video-cover`** |
-| `--video-cover <path\|url\|key>` | **Required with `--video`** | Cwd-relative local cover image path, URL, or `image_key` (`img_xxx`). Local paths and URLs are uploaded automatically |
-| `--audio <path\|url\|key>` | One content option | Cwd-relative local audio path, URL, or `file_key`. Local paths and URLs are uploaded automatically |
+| Parameter | Required | Description                                                                                                                                                                                   |
+|------|------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--chat-id <id>` | One of two | Group chat ID (`oc_xxx`)                                                                                                                                                                      |
+| `--user-id <id>` | One of two | User open_id (`ou_xxx`) for direct messages                                                                                                                                                   |
+| `--text <string>` | One content option | Plain text message. Best default for exact text and preserved formatting. Automatically wrapped as `{"text":"..."}`                                                                           |
+| `--markdown <string>` | One content option | Convenience Markdown input. Internally converted to `post` JSON with Feishu-specific normalization; not full Markdown passthrough                                                             |
+| `--content <json>` | One content option | Exact message content JSON string; use this when you need full control over `msg_type` and payload. The JSON must match the effective `--msg-type`                                            |
+| `--image <path\|url\|key>` | One content option | Cwd-relative local image path, URL, or `image_key` (`img_xxx`). Local paths and URLs are uploaded automatically                                                                               |
+| `--file <path\|url\|key>` | One content option | Cwd-relative local file path, URL, or `file_key` (`file_xxx`). Local paths and URLs are uploaded automatically                                                                                |
+| `--video <path\|url\|key>` | One content option | Cwd-relative local video path, URL, or `file_key` (`file_xxx`). Local paths and URLs are uploaded automatically. **Must be paired with `--video-cover`**                                      |
+| `--video-cover <path\|url\|key>` | **Required with `--video`** | Cwd-relative local cover image path, URL, or `image_key` (`img_xxx`). Local paths and URLs are uploaded automatically                                                                         |
+| `--audio <path\|url\|key>` | One content option | Cwd-relative local audio path, URL, or `file_key` (`file_xxx`). Local paths and URLs are uploaded automatically                                                                                           |
 | `--msg-type <type>` | No | Message type (default `text`). If you use `--text` / `--markdown` / media flags, the effective type is inferred automatically. Explicitly setting a conflicting `--msg-type` fails validation |
-| `--idempotency-key <key>` | No | Idempotency key; the same key sends only one message within 1 hour |
-| `--as <identity>` | No | Identity type: `bot` or `user` (default `bot`) |
-| `--dry-run` | No | Print the request only, do not execute it |
+| `--idempotency-key <key>` | No | Idempotency key; the same key sends only one message within 1 hour                                                                                                                            |
+| `--as <identity>` | No | Identity type: `bot` or `user` (default `bot`)                                                                                                                                                |
+| `--dry-run` | No | Print the request only, do not execute it                                                                                                                                                     |
 
 > **Mutual exclusivity rule:** `--text`, `--markdown`, `--content`, and `--image`/`--file`/`--video`/`--audio` cannot be used together. Media flags are also mutually exclusive with each other.
 >
