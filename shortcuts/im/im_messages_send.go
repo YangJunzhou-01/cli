@@ -81,10 +81,14 @@ var ImMessagesSend = common.Shortcut{
 		if desc != "" {
 			d.Desc(desc)
 		}
-		return d.
+		d.
 			POST("/open-apis/im/v1/messages").
 			Params(map[string]interface{}{"receive_id_type": receiveIdType}).
 			Body(body)
+		if chatFlag != "" {
+			d.Desc("NOTE: dry-run validates request shape only. Bot/user membership in the target chat is not verified; the real send may fail with `Bot/User can NOT be out of the chat`.")
+		}
+		return d
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
 		chatFlag := runtime.Str("chat-id")
