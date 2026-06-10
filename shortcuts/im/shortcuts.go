@@ -13,6 +13,7 @@ func Shortcuts() []common.Shortcut {
 		ImChatMessageList,
 		ImChatSearch,
 		ImChatUpdate,
+		ImMessageUserReceiveSubscribe,
 		ImMessagesMGet,
 		ImMessagesReply,
 		ImMessagesResourcesDownload,

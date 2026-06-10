@@ -1,7 +1,7 @@
 ---
 name: lark-im
 version: 1.0.0
-description: "飞书即时通讯：收发消息和管理群聊。发送和回复消息、搜索聊天记录、管理群聊成员、上传下载图片和文件（支持大文件分片下载）、管理表情回复、发送应用内/短信/电话加急。当用户需要发消息、查看或搜索聊天记录、下载聊天中的文件、查看群成员、搜索群、创建群聊或话题群、管理标记数据、管理 Feed 置顶（添加/移除/查询置顶会话）、管理标签数据时使用。"
+description: "飞书即时通讯：收发消息和管理群聊。发送和回复消息、搜索聊天记录、管理群聊成员、上传下载图片和文件（支持大文件分片下载）、管理表情回复、发送应用内/短信/电话加急。当用户需要发消息、查看或搜索聊天记录、下载聊天中的文件、查看群成员、搜索群、创建群聊或话题群、管理标记数据、管理 Feed 置顶（添加/移除/查询置顶会话）、管理标签数据、管理用户消息订阅时使用。"
 metadata:
   requires:
     bins: ["lark-cli"]
@@ -61,6 +61,8 @@ The four message-pulling shortcuts (`+messages-mget`, `+chat-messages-list`, `+m
 
 Card messages (`interactive` type) are not yet supported for compact conversion in event subscriptions. The raw event data will be returned instead, with a hint printed to stderr.
 
+For user-scoped message notifications, use `lark-cli event consume im.message.user_receive_v1 --as user`. This EventKey emits message IDs only; call `im +messages-mget` if message body details are needed.
+
 ### Flag Types
 
 Flags support two layers:
@@ -74,7 +76,7 @@ Item types for feed-layer flags:
 
 ### Feed Shortcut
 
-Feed shortcuts add chats to the current user's feed sidebar. They are distinct from flags:
+Feed shortcuts add chats to the **current user's** feed sidebar. They are distinct from flags:
 
 - **Flag** = bookmark on a message/thread, scoped to the user's bookmark list.
 - **Feed shortcut** = entry in the user's feed sidebar (currently only chats).
@@ -95,6 +97,7 @@ Shortcut 是对常用操作的高级封装（`lark-cli im +<verb> [flags]`）。
 | [`+chat-messages-list`](references/lark-im-chat-messages-list.md) | List messages in a chat or P2P conversation; user/bot; accepts --chat-id or --user-id, resolves P2P chat_id, supports time range/sort/pagination |
 | [`+chat-search`](references/lark-im-chat-search.md) | Search visible group chats by --query keyword and/or --member-ids; user/bot; e.g. look up chat_id by group name; supports type filters, sorting, pagination, and --exclude-muted (user identity only) |
 | [`+chat-update`](references/lark-im-chat-update.md) | Update group chat name or description; user/bot; updates a chat's name or description |
+| [`+message-user-receive-subscribe`](references/lark-im-message-user-receive-subscribe.md) | Create a message receive subscription; user-only; supports sender_user/chat/mention_me/p2p_chat resource types |
 | [`+messages-mget`](references/lark-im-messages-mget.md) | Batch get messages by IDs; user/bot; fetches up to 50 om_ message IDs, formats sender names, expands thread replies |
 | [`+messages-reply`](references/lark-im-messages-reply.md) | Reply to a message (supports thread replies); user/bot; supports text/markdown/post/media replies, reply-in-thread, idempotency key |
 | [`+messages-resources-download`](references/lark-im-messages-resources-download.md) | Download images/files from a message; user/bot; supports automatic chunked download for large files (8MB chunks), auto-detects file extension from Content-Type |
@@ -189,6 +192,11 @@ lark-cli im <resource> <method> [flags] # 调用 API
   - `delete` — Delete a feed group. Identity: `user` only (`user_access_token`).[Must-read](references/lark-im-feed-groups.md)
   - `update` — Update a feed group. Identity: `user` only (`user_access_token`).[Must-read](references/lark-im-feed-groups.md)
 
+### user_message_subscription
+
+  - `batch_delete` — 批量删除用户订阅资源关系。Identity: `user` only (`user_access_token`); requires `subscription_ids`, with 1 to 20 IDs per request.
+  - `batch_query` — 批量查询用户订阅资源关系。Identity: `user` only (`user_access_token`); supports filtering by `resource_type`, `resource_id`, and `status`, with pagination via `page_size` and `page_token`.
+
 ## 权限表
 
 | 方法 | 所需 scope |
@@ -229,3 +237,5 @@ lark-cli im <resource> <method> [flags] # 调用 API
 | `feed.groups.create` | `im:feed_group_v1:write` |
 | `feed.groups.delete` | `im:feed_group_v1:write` |
 | `feed.groups.update` | `im:feed_group_v1:write` |
+| `user_message_subscription.batch_delete` | `im:message.user_event_message:read` |
+| `user_message_subscription.batch_query` | `im:message.user_event_message:read` |

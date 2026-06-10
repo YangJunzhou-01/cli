@@ -4,11 +4,12 @@
 >
 > **Heads-up for AI agents**: this key's `.content` is **NOT** the raw OAPI payload shape your training data may suggest. `lark-cli` runs a Process hook (`convertlib`) that flattens the V2 envelope and **pre-renders** `.content` to human-readable text for `text` / `post` / `image` / `file` / `audio` / etc. Only `interactive` (cards) keeps the raw JSON string. Don't blindly `fromjson`.
 
-## Key catalog (11)
+## Key catalog (12)
 
 | EventKey | Purpose |
 |---|---|
 | `im.message.receive_v1` | Receive IM messages |
+| `im.message.user_receive_v1` | Receive user-scoped message notifications; emits message IDs only |
 | `im.message.message_read_v1` | User read a bot's **p2p** message (group messages don't fire this) |
 | `im.message.reaction.created_v1` | Reaction added to a message |
 | `im.message.reaction.deleted_v1` | Reaction removed from a message |
@@ -20,7 +21,7 @@
 | `im.chat.member.user.deleted_v1` | User left voluntarily **or** was removed |
 | `im.chat.member.user.withdrawn_v1` | Pending chat invite withdrawn (inviter canceled; user never actually joined) |
 
-> **Shape**: `im.message.receive_v1` is the only flat key (fields at `.xxx`); the other 10 are V2-enveloped (fields at `.event.xxx`).
+> **Shape**: `im.message.receive_v1` and `im.message.user_receive_v1` are flat keys (fields at `.xxx`); the other 10 are V2-enveloped (fields at `.event.xxx`).
 
 ## Gotchas (`im.message.receive_v1`)
 
@@ -43,6 +44,37 @@ lark-cli event consume im.message.receive_v1 --as bot \
 # interactive: .content is a JSON string — fromjson to parse
 lark-cli event consume im.message.receive_v1 --as bot \
   --jq 'select(.message_type=="interactive") | .content | fromjson'
+```
+
+## Gotchas (`im.message.user_receive_v1`)
+
+This EventKey uses **user identity** and creates the user message subscription during `event consume` startup. Pass subscription selectors as params:
+
+```bash
+# messages mentioning the current user
+lark-cli event consume im.message.user_receive_v1 --as user
+
+# messages in specific chats
+lark-cli event consume im.message.user_receive_v1 --as user \
+  -p resource_type=chat \
+  -p resource_ids=oc_xxx,oc_yyy
+
+# messages from specific users
+lark-cli event consume im.message.user_receive_v1 --as user \
+  -p resource_type=sender_user \
+  -p resource_ids=ou_xxx,ou_yyy
+```
+
+The processed output intentionally contains only event metadata and `message_id` / `id`. It does **not** include message body, sender, or chat fields. Fetch details explicitly when needed:
+
+```bash
+# get a message ID from the event stream
+lark-cli event consume im.message.user_receive_v1 --as user \
+  --max-events 1 \
+  --jq '.message_id'
+
+# fetch the message body/details by ID
+lark-cli im +messages-mget --as user --message-ids om_xxx
 ```
 
 ## On-demand filter recipes

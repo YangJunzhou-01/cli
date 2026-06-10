@@ -27,6 +27,42 @@ func Keys() []event.KeyDefinition {
 			AuthTypes:             []string{"bot"},
 			RequiredConsoleEvents: []string{"im.message.receive_v1"},
 		},
+		{
+			Key:         eventTypeMessageUserReceive,
+			DisplayName: "Receive user message",
+			Description: "Receive user-scoped IM message events; output includes message IDs only",
+			EventType:   eventTypeMessageUserReceive,
+			Params: []event.ParamDef{
+				{
+					Name:            "resource_type",
+					Type:            event.ParamEnum,
+					Default:         "mention_me",
+					Description:     "Subscription resource type",
+					SubscriptionKey: true,
+					Values: []event.ParamValue{
+						{Value: "sender_user", Desc: "Messages sent by the specified user open_ids in resource_ids"},
+						{Value: "chat", Desc: "Messages in the specified chat open_ids in resource_ids"},
+						{Value: "mention_me", Desc: "Messages that mention the current subscriber"},
+						{Value: "p2p_chat", Desc: "P2P messages associated with the current subscriber"},
+					},
+				},
+				{
+					Name:            "resource_ids",
+					Type:            event.ParamString,
+					Description:     "Comma-separated resource IDs; required for sender_user (ou_xxx) and chat (oc_xxx); max 10",
+					SubscriptionKey: true,
+				},
+			},
+			Schema: event.SchemaDef{
+				Custom: &event.SchemaSpec{Type: reflect.TypeOf(ImMessageUserReceiveOutput{})},
+			},
+			NormalizeParams:       normalizeMessageUserReceiveParams,
+			Process:               processImMessageUserReceive,
+			PreConsume:            messageUserReceivePreConsume,
+			Scopes:                []string{"im:message.user_event_message:read"},
+			AuthTypes:             []string{"user"},
+			RequiredConsoleEvents: []string{eventTypeMessageUserReceive},
+		},
 	}
 
 	for _, rk := range nativeIMKeys {
