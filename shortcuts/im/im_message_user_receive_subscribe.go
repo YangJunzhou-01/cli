@@ -5,28 +5,21 @@ package im
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/larksuite/cli/internal/im/userreceive"
 	"github.com/larksuite/cli/internal/output"
 	"github.com/larksuite/cli/shortcuts/common"
-)
-
-const imMessageUserReceiveSubscribePath = "/open-apis/im/v1/user_message_subscriptions"
-
-const (
-	messageUserReceiveResourceSenderUser = 1
-	messageUserReceiveResourceChat       = 2
-	messageUserReceiveResourceMentionMe  = 3
-	messageUserReceiveResourceP2PChat    = 4
 )
 
 var ImMessageUserReceiveSubscribe = common.Shortcut{
 	Service:     "im",
 	Command:     "+message-user-receive-subscribe",
-	Description: "Create a message receive subscription; user-only; supports sender_user/chat/mention_me/p2p_chat resource types",
+	Description: "Create a persistent server-side user message subscription; user-only; supports sender_user/chat/mention_me/p2p_chat resource types",
 	Risk:        "write",
 	Scopes:      []string{"im:message.user_event_message:read"},
 	AuthTypes:   []string{"user"},
@@ -49,7 +42,7 @@ var ImMessageUserReceiveSubscribe = common.Shortcut{
 			return common.NewDryRunAPI().Set("error", err.Error())
 		}
 		return common.NewDryRunAPI().
-			POST(imMessageUserReceiveSubscribePath).
+			POST(userreceive.SubscribePath).
 			Body(body)
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
@@ -61,7 +54,7 @@ var ImMessageUserReceiveSubscribe = common.Shortcut{
 			return err
 		}
 
-		resData, err := runtime.DoAPIJSONTyped(http.MethodPost, imMessageUserReceiveSubscribePath, nil, body)
+		resData, err := runtime.DoAPIJSONTyped(http.MethodPost, userreceive.SubscribePath, nil, body)
 		if err != nil {
 			return err
 		}
@@ -80,87 +73,60 @@ var ImMessageUserReceiveSubscribe = common.Shortcut{
 }
 
 func buildMessageUserReceiveSubscribeRequest(runtime *common.RuntimeContext) (map[string]interface{}, error) {
-	resourceType, err := parseMessageUserReceiveResourceType(runtime.Str("resource-type"))
+	params := messageUserReceiveSubscribeParams(runtime)
+	if err := userreceive.NormalizeParams(params); err != nil {
+		return nil, messageUserReceiveSubscribeParamError(err)
+	}
+	body, err := userreceive.BuildSubscriptionBody(params)
 	if err != nil {
-		return nil, err
+		return nil, messageUserReceiveSubscribeParamError(err)
 	}
-
-	body := map[string]interface{}{
-		"resource_type": resourceType,
-	}
-	if ids := common.SplitCSV(runtime.Str("resource-ids")); len(ids) > 0 {
-		body["resource_ids"] = ids
-	}
-
 	return body, nil
 }
 
 func validateMessageUserReceiveSubscribe(runtime *common.RuntimeContext) error {
-	resourceType, err := parseMessageUserReceiveResourceType(runtime.Str("resource-type"))
-	if err != nil {
-		return err
-	}
-
-	resourceIDs := common.SplitCSV(runtime.Str("resource-ids"))
-	switch resourceType {
-	case messageUserReceiveResourceSenderUser, messageUserReceiveResourceChat:
-		if len(resourceIDs) == 0 {
-			return common.ValidationErrorf("--resource-ids is required for resource-type %s", resourceTypeName(resourceType)).
-				WithParam("--resource-ids")
-		}
-		if len(resourceIDs) > 10 {
-			return common.ValidationErrorf("--resource-ids exceeds the maximum of 10 (got %d)", len(resourceIDs)).
-				WithParam("--resource-ids")
-		}
-		for _, resourceID := range resourceIDs {
-			switch resourceType {
-			case messageUserReceiveResourceSenderUser:
-				if _, err := common.ValidateUserIDTyped("--resource-ids", resourceID); err != nil {
-					return err
-				}
-			case messageUserReceiveResourceChat:
-				if _, err := common.ValidateChatIDTyped("--resource-ids", resourceID); err != nil {
-					return err
-				}
-			}
-		}
-	case messageUserReceiveResourceMentionMe, messageUserReceiveResourceP2PChat:
-		if len(resourceIDs) > 10 {
-			return common.ValidationErrorf("--resource-ids exceeds the maximum of 10 (got %d)", len(resourceIDs)).
-				WithParam("--resource-ids")
-		}
+	params := messageUserReceiveSubscribeParams(runtime)
+	if err := userreceive.NormalizeParams(params); err != nil {
+		return messageUserReceiveSubscribeParamError(err)
 	}
 	return nil
 }
 
-func parseMessageUserReceiveResourceType(value string) (int, error) {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "", "mention_me":
-		return messageUserReceiveResourceMentionMe, nil
-	case "sender_user":
-		return messageUserReceiveResourceSenderUser, nil
-	case "chat":
-		return messageUserReceiveResourceChat, nil
-	case "p2p_chat":
-		return messageUserReceiveResourceP2PChat, nil
-	default:
-		return 0, common.ValidationErrorf("invalid --resource-type %q, allowed: sender_user, chat, mention_me, p2p_chat", value).
-			WithParam("--resource-type")
+func messageUserReceiveSubscribeParams(runtime *common.RuntimeContext) map[string]string {
+	return map[string]string{
+		userreceive.FieldResourceType: runtime.Str("resource-type"),
+		userreceive.FieldResourceIDs:  runtime.Str("resource-ids"),
 	}
 }
 
-func resourceTypeName(resourceType int) string {
-	switch resourceType {
-	case messageUserReceiveResourceSenderUser:
-		return "sender_user"
-	case messageUserReceiveResourceChat:
-		return "chat"
-	case messageUserReceiveResourceMentionMe:
-		return "mention_me"
-	case messageUserReceiveResourceP2PChat:
-		return "p2p_chat"
+func messageUserReceiveSubscribeParamError(err error) error {
+	if err == nil {
+		return nil
+	}
+	param := ""
+	var paramErr *userreceive.ParamError
+	if errors.As(err, &paramErr) {
+		param = shortcutMessageUserReceiveParamName(paramErr.Field)
+	}
+	message := strings.NewReplacer(
+		"resource_type", "--resource-type",
+		"resource_ids", "--resource-ids",
+	).Replace(err.Error())
+	validationErr := common.ValidationErrorf("%s", message)
+	if param != "" {
+		validationErr.WithParam(param)
+	}
+	return validationErr
+}
+
+func shortcutMessageUserReceiveParamName(field string) string {
+	switch field {
+	case userreceive.FieldResourceType:
+		return "--resource-type"
+	case userreceive.FieldResourceIDs:
+		return "--resource-ids"
 	default:
-		return fmt.Sprintf("%d", resourceType)
+		return ""
 	}
 }
 

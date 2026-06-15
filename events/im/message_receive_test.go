@@ -11,7 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/larksuite/cli/errs"
 	"github.com/larksuite/cli/internal/event"
+	"github.com/larksuite/cli/internal/im/userreceive"
 )
 
 func TestMain(m *testing.M) {
@@ -172,7 +174,7 @@ func TestProcessImMessageUserReceive_MalformedPayload(t *testing.T) {
 func TestMessageUserReceivePreConsume_SubscribeAndCleanup(t *testing.T) {
 	rt := &recordingAPIClient{
 		responses: []json.RawMessage{
-			json.RawMessage(`{"code":0,"data":{"subscriptions":[{"subscription_id":"sub_1"},{"subscription_id":"sub_2"}]}}`),
+			json.RawMessage(`{"code":0,"data":{"subscriptions":[{"subscription_id":7626963373590186951},{"subscription_id":7626963373590186952}]}}`),
 			json.RawMessage(`{"code":0,"data":{}}`),
 		},
 	}
@@ -195,11 +197,11 @@ func TestMessageUserReceivePreConsume_SubscribeAndCleanup(t *testing.T) {
 		t.Fatalf("calls after subscribe = %d, want 1", len(rt.calls))
 	}
 	subscribe := rt.calls[0]
-	if subscribe.method != "POST" || subscribe.path != pathMessageUserReceiveSubscribe {
+	if subscribe.method != "POST" || subscribe.path != userreceive.SubscribePath {
 		t.Fatalf("subscribe call = %s %s", subscribe.method, subscribe.path)
 	}
 	wantSubBody := map[string]interface{}{
-		"resource_type": userReceiveResourceChat,
+		"resource_type": userreceive.ResourceChat,
 		"resource_ids":  []string{"oc_1", "oc_2"},
 	}
 	if !reflect.DeepEqual(subscribe.body, wantSubBody) {
@@ -213,11 +215,11 @@ func TestMessageUserReceivePreConsume_SubscribeAndCleanup(t *testing.T) {
 		t.Fatalf("calls after cleanup = %d, want 2", len(rt.calls))
 	}
 	deleted := rt.calls[1]
-	if deleted.method != "POST" || deleted.path != pathMessageUserReceiveDelete {
+	if deleted.method != "POST" || deleted.path != userreceive.DeletePath {
 		t.Fatalf("delete call = %s %s", deleted.method, deleted.path)
 	}
 	wantDeleteBody := map[string]interface{}{
-		"subscription_ids": []string{"sub_1", "sub_2"},
+		"subscription_ids": []json.Number{"7626963373590186951", "7626963373590186952"},
 	}
 	if !reflect.DeepEqual(deleted.body, wantDeleteBody) {
 		t.Fatalf("delete body = %#v, want %#v", deleted.body, wantDeleteBody)
@@ -226,9 +228,9 @@ func TestMessageUserReceivePreConsume_SubscribeAndCleanup(t *testing.T) {
 
 func TestNormalizeMessageUserReceiveParams_Validation(t *testing.T) {
 	tests := []struct {
-		name    string
-		params  map[string]string
-		wantErr bool
+		name      string
+		params    map[string]string
+		wantParam string
 	}{
 		{
 			name:   "mention_me default",
@@ -239,7 +241,7 @@ func TestNormalizeMessageUserReceiveParams_Validation(t *testing.T) {
 			params: map[string]string{
 				"resource_type": "sender_user",
 			},
-			wantErr: true,
+			wantParam: "resource_ids",
 		},
 		{
 			name: "sender_user rejects non user ids",
@@ -247,7 +249,7 @@ func TestNormalizeMessageUserReceiveParams_Validation(t *testing.T) {
 				"resource_type": "sender_user",
 				"resource_ids":  "oc_chat",
 			},
-			wantErr: true,
+			wantParam: "resource_ids",
 		},
 		{
 			name: "chat rejects non chat ids",
@@ -255,17 +257,34 @@ func TestNormalizeMessageUserReceiveParams_Validation(t *testing.T) {
 				"resource_type": "chat",
 				"resource_ids":  "ou_user",
 			},
-			wantErr: true,
+			wantParam: "resource_ids",
+		},
+		{
+			name: "unknown resource type",
+			params: map[string]string{
+				"resource_type": "unknown",
+			},
+			wantParam: "resource_type",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := normalizeMessageUserReceiveParams(context.Background(), nil, tt.params)
-			if tt.wantErr && err == nil {
+			if tt.wantParam == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil {
 				t.Fatal("expected error")
 			}
-			if !tt.wantErr && err != nil {
-				t.Fatalf("unexpected error: %v", err)
+			ve, ok := err.(*errs.ValidationError)
+			if !ok {
+				t.Fatalf("error = %T, want *errs.ValidationError", err)
+			}
+			if ve.Param != tt.wantParam {
+				t.Fatalf("Param = %q, want %q", ve.Param, tt.wantParam)
 			}
 		})
 	}

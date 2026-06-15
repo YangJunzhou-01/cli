@@ -6,24 +6,15 @@ package im
 import (
 	"context"
 	"encoding/json"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/larksuite/cli/errs"
 	"github.com/larksuite/cli/internal/event"
+	"github.com/larksuite/cli/internal/im/userreceive"
 )
 
 const (
-	eventTypeMessageUserReceive = "im.message.user_receive_v1"
-
-	pathMessageUserReceiveSubscribe = "/open-apis/im/v1/user_message_subscriptions"
-	pathMessageUserReceiveDelete    = "/open-apis/im/v1/user_message_subscriptions/batch_delete"
-
-	userReceiveResourceSenderUser = 1
-	userReceiveResourceChat       = 2
-	userReceiveResourceMentionMe  = 3
-	userReceiveResourceP2PChat    = 4
+	eventTypeMessageUserReceive = userreceive.EventType
 )
 
 // ImMessageUserReceiveOutput is the flattened shape for im.message.user_receive_v1.
@@ -79,41 +70,7 @@ func processImMessageUserReceive(_ context.Context, _ event.APIClient, raw *even
 }
 
 func normalizeMessageUserReceiveParams(_ context.Context, _ event.APIClient, params map[string]string) error {
-	resourceType, err := parseUserReceiveResourceType(params["resource_type"])
-	if err != nil {
-		return err
-	}
-	params["resource_type"] = resourceTypeName(resourceType)
-
-	ids := splitResourceIDs(params["resource_ids"])
-	switch resourceType {
-	case userReceiveResourceSenderUser:
-		if len(ids) == 0 {
-			return userReceiveParamError("resource_ids is required when resource_type=sender_user")
-		}
-		if err := validateResourceIDs(ids, "ou_"); err != nil {
-			return err
-		}
-	case userReceiveResourceChat:
-		if len(ids) == 0 {
-			return userReceiveParamError("resource_ids is required when resource_type=chat")
-		}
-		if err := validateResourceIDs(ids, "oc_"); err != nil {
-			return err
-		}
-	case userReceiveResourceMentionMe, userReceiveResourceP2PChat:
-		// resource_ids are optional for these subscription modes.
-	}
-	if len(ids) > 10 {
-		return userReceiveParamError("resource_ids exceeds the maximum of 10 (got %d)", len(ids))
-	}
-	sort.Strings(ids)
-	if len(ids) > 0 {
-		params["resource_ids"] = strings.Join(ids, ",")
-	} else {
-		delete(params, "resource_ids")
-	}
-	return nil
+	return userReceiveParamError(userreceive.NormalizeParams(params))
 }
 
 func messageUserReceivePreConsume(ctx context.Context, rt event.APIClient, params map[string]string) (func() error, error) {
@@ -121,15 +78,15 @@ func messageUserReceivePreConsume(ctx context.Context, rt event.APIClient, param
 		return nil, errs.NewInternalError(errs.SubtypeUnknown,
 			"runtime API client is required for pre-consume subscription")
 	}
-	body, err := buildMessageUserReceiveSubscriptionBody(params)
+	body, err := userreceive.BuildSubscriptionBody(params)
+	if err != nil {
+		return nil, userReceiveParamError(err)
+	}
+	raw, err := rt.CallAPI(ctx, "POST", userreceive.SubscribePath, body)
 	if err != nil {
 		return nil, err
 	}
-	raw, err := rt.CallAPI(ctx, "POST", pathMessageUserReceiveSubscribe, body)
-	if err != nil {
-		return nil, err
-	}
-	subscriptionIDs := parseMessageUserReceiveSubscriptionIDs(raw)
+	subscriptionIDs := userreceive.ParseSubscriptionIDs(raw)
 	if len(subscriptionIDs) == 0 {
 		return func() error { return nil }, nil
 	}
@@ -137,100 +94,25 @@ func messageUserReceivePreConsume(ctx context.Context, rt event.APIClient, param
 	return func() error {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_, err := rt.CallAPI(cleanupCtx, "POST", pathMessageUserReceiveDelete, map[string]interface{}{
+		_, err := rt.CallAPI(cleanupCtx, "POST", userreceive.DeletePath, map[string]interface{}{
 			"subscription_ids": subscriptionIDs,
 		})
 		return err
 	}, nil
 }
 
-func buildMessageUserReceiveSubscriptionBody(params map[string]string) (map[string]interface{}, error) {
-	resourceType, err := parseUserReceiveResourceType(params["resource_type"])
-	if err != nil {
-		return nil, err
-	}
-	body := map[string]interface{}{"resource_type": resourceType}
-	if ids := splitResourceIDs(params["resource_ids"]); len(ids) > 0 {
-		body["resource_ids"] = ids
-	}
-	return body, nil
-}
-
-func parseMessageUserReceiveSubscriptionIDs(raw json.RawMessage) []string {
-	var resp struct {
-		Data struct {
-			Subscriptions []struct {
-				SubscriptionID string `json:"subscription_id"`
-			} `json:"subscriptions"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(raw, &resp); err != nil {
+func userReceiveParamError(err error) error {
+	if err == nil {
 		return nil
 	}
-	ids := make([]string, 0, len(resp.Data.Subscriptions))
-	for _, sub := range resp.Data.Subscriptions {
-		if sub.SubscriptionID != "" {
-			ids = append(ids, sub.SubscriptionID)
-		}
+	param := ""
+	if paramErr, ok := err.(*userreceive.ParamError); ok {
+		param = paramErr.Field
 	}
-	return ids
-}
-
-func parseUserReceiveResourceType(value string) (int, error) {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "", "mention_me":
-		return userReceiveResourceMentionMe, nil
-	case "sender_user":
-		return userReceiveResourceSenderUser, nil
-	case "chat":
-		return userReceiveResourceChat, nil
-	case "p2p_chat":
-		return userReceiveResourceP2PChat, nil
-	default:
-		return 0, userReceiveParamError("invalid resource_type %q, allowed: sender_user, chat, mention_me, p2p_chat", value)
-	}
-}
-
-func resourceTypeName(resourceType int) string {
-	switch resourceType {
-	case userReceiveResourceSenderUser:
-		return "sender_user"
-	case userReceiveResourceChat:
-		return "chat"
-	case userReceiveResourceMentionMe:
-		return "mention_me"
-	case userReceiveResourceP2PChat:
-		return "p2p_chat"
-	default:
-		return ""
-	}
-}
-
-func splitResourceIDs(value string) []string {
-	if strings.TrimSpace(value) == "" {
-		return nil
-	}
-	parts := strings.Split(value, ",")
-	ids := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if id := strings.TrimSpace(part); id != "" {
-			ids = append(ids, id)
-		}
-	}
-	return ids
-}
-
-func validateResourceIDs(ids []string, prefix string) error {
-	for _, id := range ids {
-		if !strings.HasPrefix(id, prefix) {
-			return userReceiveParamError("resource_id %q must be prefixed with %s", id, prefix)
-		}
-	}
-	return nil
-}
-
-func userReceiveParamError(format string, args ...interface{}) error {
-	return errs.NewValidationError(errs.SubtypeInvalidArgument, format, args...).
-		WithParam("--param").
+	validationErr := errs.NewValidationError(errs.SubtypeInvalidArgument, "%s", err).
 		WithHint("run `lark-cli event schema %s` for resource_type and resource_ids usage", eventTypeMessageUserReceive)
+	if param != "" {
+		validationErr.WithParam(param)
+	}
+	return validationErr
 }
